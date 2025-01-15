@@ -1,6 +1,6 @@
 # Krisi File Sharing Service
 
-The project is used to allow for secure file transfers between [Kristina Kostova][https://kristinakostova.com] and her clients.
+The project is used to allow for secure file transfers between [Kristina Kostova](https://kristinakostova.com) and her clients.
 The goal of the project is full encryption even before user begins upload using AES-256 and WebCrypto.Subtle API. The files will be encrypted once again on the AWS S3 bucket so they'll be virtually inaccessible by 3rd parties. Everything is hosted on SSL enabled servers so even MITM attacks should be blocked off. Also, using cronjobs the files will be automatically deleted per client's request
 
 ## Tech stack
