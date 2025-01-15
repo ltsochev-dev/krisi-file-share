@@ -20,6 +20,7 @@ export type DeletionTime = {
 
 export interface FileUploadProps {
   name?: string;
+  hash?: string;
   durations?: DeletionTime[];
 }
 
@@ -36,6 +37,7 @@ const defaultDurations: DeletionTime[] = [
 
 export default function FileUpload({
   name,
+  hash = nanoid(),
   durations = defaultDurations,
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,9 +58,19 @@ export default function FileUpload({
   const handleUpload = async () => {
     if (!file) return;
 
+    // checkFileExistence
+    // getPresignedUploadUrl with proper expire field
+    // encrypt blob
+    // upload file as application/octet-stream
+    // use multipart upload
+
     const metadata = {
       "x-amz-meta-original-filename": file.name,
-      "x-amz-meta-original-hash": nanoid(),
+      "x-amz-meta-original-extension": file.name.includes(".")
+        ? file.name.split(".").pop()!.toLowerCase()
+        : null,
+      "x-amz-meta-mimetype": file.type,
+      "x-amz-meta-hash": hash,
       "x-amz-meta-expires": deletionTime,
     };
 

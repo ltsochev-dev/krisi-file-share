@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import FileUpload from "@/components/file-upload";
 
-export default function Hero() {
+export default function Hero({ hash }: { hash?: string }) {
   return (
     <div className="text-center py-12 md:py-24">
       <motion.h1
@@ -29,7 +29,7 @@ export default function Hero() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.4 }}
       >
-        <FileUpload />
+        <FileUpload hash={hash} />
       </motion.div>
     </div>
   );
