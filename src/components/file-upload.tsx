@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Upload, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +14,11 @@ import { ProgressButton } from "./ui/progressButton";
 import { nanoid } from "nanoid";
 import useCrypto from "@/hooks/useCrypto";
 import AppSettings from "@/settings";
+import checkFileExistence from "@/actions/checkFileExistence";
+import { isMultipartUploadRequired } from "@/lib/utils";
+import SimpleUploader from "@/lib/uploaders/SimpleUploader";
+import getPresignedUploadUrl from "@/actions/getPresignedUploadUrl";
+import { useRouter } from "next/navigation";
 
 export type DeletionTime = {
   value: number;
@@ -43,6 +48,7 @@ export default function FileUpload({
   durations = defaultDurations,
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deletionTime, setDeletionTime] = useState(
@@ -51,7 +57,7 @@ export default function FileUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
-  const { cryptoService, loaded: cryptoServiceLoaded } = useCrypto(
+  const { encryptFile, loaded: cryptoServiceLoaded } = useCrypto(
     AppSettings.encryptPubKey
   );
 
@@ -61,69 +67,77 @@ export default function FileUpload({
     }
   };
 
-  const encryptFile = useCallback(
-    async (file: File | ArrayBuffer) => {
-      if (!cryptoService || !cryptoServiceLoaded) {
-        setError("Encryption service is not ready");
-        return;
-      }
-
-      try {
-        // @todo implement onProgress
-        return cryptoService.encryptFile(file);
-      } catch (err) {
-        setError("Encryption failed");
-        console.error(err);
-      }
-    },
-    [cryptoService, cryptoServiceLoaded]
-  );
-
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || !cryptoServiceLoaded) return;
+
+    setError(null);
+    setIsUploading(true);
 
     // checkFileExistence
-    // getPresignedUploadUrl with proper expire field
-    // encrypt blob
-    // upload file as application/octet-stream
-    // use multipart upload
+    const fileExists = await checkFileExistence(process.env.AWS_BUCKET!, hash);
+    if (fileExists) {
+      setError(
+        "File already exists on the remote storage. Please ask me for another upload link!"
+      );
+      return;
+    }
 
     const metadata = {
       "x-amz-meta-original-filename": file.name,
       "x-amz-meta-original-extension": file.name.includes(".")
         ? file.name.split(".").pop()!.toLowerCase()
-        : null,
+        : "",
       "x-amz-meta-mimetype": file.type,
       "x-amz-meta-hash": hash,
       "x-amz-meta-expires": deletionTime,
     };
 
-    // Here you would implement the actual file upload logic
-    console.log(`Uploading file: ${file.name}`);
-    console.log(`File will be deleted after ${deletionTime} seconds`);
-    console.log({ metadata });
+    if (isMultipartUploadRequired(file)) {
+      // use multipart upload
+      throw new Error("Multipart file uploads are not done yet.");
+    } else {
+      // getPresignedUploadUrl with proper expire field
+      const presignedUrl = await getPresignedUploadUrl(
+        process.env.AWS_BUCKET!,
+        {
+          hash,
+          expireIn: Number(deletionTime),
+          size: file.size,
+          metadata,
+        }
+      );
 
-    setIsUploading(true);
+      if (!presignedUrl) {
+        setError("Could not create presigned url. Please try again later.");
+        return;
+      }
 
-    setUploadPercent(50);
+      const uploader = new SimpleUploader({
+        file: await encryptFile({ file }), // encrypt blob
+        presignedUrl,
+        onProgress: (progress) => {
+          if (progress.percentCompleted) {
+            setUploadPercent(progress.percentCompleted);
+          }
+        },
+        headers: {
+          "Content-Type": "application/octet-stream", // upload file as application/octet-stream
+        },
+      });
 
-    // Simulating upload process
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    setIsUploading(false);
-    setIsUploaded(true);
-    setUploadPercent(0);
-
-    // Reset after 3 seconds
-    setTimeout(() => {
-      setFile(null);
-      setDeletionTime(durations[0]?.value?.toString() ?? "1");
-      setIsUploaded(false);
-    }, 3000);
-
-    // Reset the form after upload
-    setFile(null);
-    setDeletionTime(durations[0]?.value?.toString() ?? "1");
+      uploader
+        .upload()
+        .then(() => {
+          setIsUploaded(true);
+          setTimeout(() => router.replace("/success"), 3000);
+        })
+        .finally(() => {
+          setFile(null);
+          setError(null);
+          setIsUploading(false);
+          setUploadPercent(0);
+        });
+    }
   };
 
   return (
@@ -174,6 +188,7 @@ export default function FileUpload({
         * Only single file uploads are allowed at the moment. If you wish to
         upload multiple files, please put them in a ZIP file or similar
       </p>
+      {error && <p className="text-center text-red-700">{error}</p>}
     </div>
   );
 }

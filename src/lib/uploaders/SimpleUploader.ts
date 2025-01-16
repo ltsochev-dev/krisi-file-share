@@ -10,14 +10,14 @@ export interface UploadProgressEvent extends AxiosProgressEvent {
 }
 
 export interface SimpleUploaderProps {
-  file: File;
+  file: File | ArrayBuffer;
   presignedUrl: string;
-  onProgress: ProgressEventHandler;
+  onProgress?: ProgressEventHandler;
   headers?: AxiosRequestConfig["headers"];
 }
 
 export default class SimpleUploader {
-  private file: Blob;
+  private file: File | ArrayBuffer;
   private presignedUrl: string;
   private onProgress?: ProgressEventHandler;
   private headers?: AxiosRequestConfig["headers"];
