@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LogoutClick } from "@/components/logout-btn";
+import AdminPanel from "@/components/AdminPanel";
 
-export default async function PrivatePage() {
+export default async function AdminPage() {
   const supabase = await createClient();
 
   const { data, error } = await supabase.auth.getUser();
@@ -19,8 +19,9 @@ export default async function PrivatePage() {
   }
 
   return (
-    <p>
-      Hello {data.user.email} - <LogoutClick />
-    </p>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Admin Panel</h1>
+      <AdminPanel />
+    </div>
   );
 }
