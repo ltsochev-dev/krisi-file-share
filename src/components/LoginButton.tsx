@@ -15,5 +15,9 @@ export default function LogiButton() {
     });
   };
 
-  return <Button onClick={handleLogin}>Login using Google OAuth</Button>;
+  return (
+    <Button onClick={handleLogin} className="bg-purple-600 hover:bg-purple-700">
+      Login using Google OAuth
+    </Button>
+  );
 }

@@ -15,5 +15,9 @@ export function LogoutClick() {
     router.push("/login");
   };
 
-  return <Button onClick={handleClick}>Sign Out</Button>;
+  return (
+    <Button onClick={handleClick} className="bg-purple-600 hover:bg-purple-700">
+      Sign Out
+    </Button>
+  );
 }
