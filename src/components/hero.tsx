@@ -1,9 +1,18 @@
 "use client";
 
+import { ReactNode } from "react";
 import { motion } from "motion/react";
 import FileUpload from "@/components/file-upload";
 
-export default function Hero({ hash }: { hash?: string }) {
+export default function Hero({
+  hash,
+  showUpload = false,
+  children,
+}: {
+  hash?: string;
+  showUpload?: boolean;
+  children?: ReactNode;
+}) {
   return (
     <div className="text-center py-12 md:py-24">
       <motion.h1
@@ -29,7 +38,8 @@ export default function Hero({ hash }: { hash?: string }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.4 }}
       >
-        <FileUpload hash={hash} />
+        {showUpload && <FileUpload hash={hash} />}
+        {children}
       </motion.div>
     </div>
   );

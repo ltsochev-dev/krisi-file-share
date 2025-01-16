@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Upload, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/select";
 import { ProgressButton } from "./ui/progressButton";
 import { nanoid } from "nanoid";
+import useCrypto from "@/hooks/useCrypto";
+import AppSettings from "@/settings";
 
 export type DeletionTime = {
   value: number;
@@ -42,18 +44,40 @@ export default function FileUpload({
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [deletionTime, setDeletionTime] = useState(
     durations[0]?.value?.toString() ?? "1"
   );
   const [isUploading, setIsUploading] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
+  const { cryptoService, loaded: cryptoServiceLoaded } = useCrypto(
+    AppSettings.encryptPubKey
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFile(e.target.files.item(0));
     }
   };
+
+  const encryptFile = useCallback(
+    async (file: File | ArrayBuffer) => {
+      if (!cryptoService || !cryptoServiceLoaded) {
+        setError("Encryption service is not ready");
+        return;
+      }
+
+      try {
+        // @todo implement onProgress
+        return cryptoService.encryptFile(file);
+      } catch (err) {
+        setError("Encryption failed");
+        console.error(err);
+      }
+    },
+    [cryptoService, cryptoServiceLoaded]
+  );
 
   const handleUpload = async () => {
     if (!file) return;

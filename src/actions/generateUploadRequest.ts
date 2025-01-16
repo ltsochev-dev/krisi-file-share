@@ -3,9 +3,18 @@
 import S3Storage from "@/storage";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 
+export interface UploadRequestProps {
+  filename: string;
+  expireIn: number;
+  client: {
+    name: string;
+    email: string;
+  };
+}
+
 export default async function generateUploadRequest(
   Bucket: string,
-  filename: string
+  { filename, ...props }: UploadRequestProps
 ) {
   try {
     const Key = `${filename}.request`;
@@ -13,8 +22,8 @@ export default async function generateUploadRequest(
     const command = new PutObjectCommand({
       Bucket,
       Key,
-      Body: JSON.stringify({ time: new Date().toUTCString() }),
-      Expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // Set expiration for 3 days
+      Body: JSON.stringify(generateMetadata({ filename, ...props })),
+      Expires: new Date(Date.now() + props.expireIn * 1000),
       ContentType: "text/plain",
     });
 
@@ -26,3 +35,8 @@ export default async function generateUploadRequest(
     return false;
   }
 }
+
+const generateMetadata = (props: UploadRequestProps) => ({
+  time: new Date().toUTCString(),
+  ...props,
+});

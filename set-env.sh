@@ -2,7 +2,7 @@
 
 PROJECT_NAME="krisi-file-uploader"
 CONFIG_NAME="dev"
-ENV_FILE=".env"
+ENV_FILE=".env.local"
 
 echo "Checking Doppler authentication status..."
 
