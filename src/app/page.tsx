@@ -1,6 +1,7 @@
 import Features from "@/components/features";
 import Hero from "@/components/hero";
 import { LogoutClick } from "@/components/logout-btn";
+import RequestUrl from "@/components/request-url";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
@@ -39,9 +40,7 @@ export default async function Home() {
               >
                 Go to login page
               </Link>
-              <span className="px-4 py-2 w-full bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-medium">
-                Request Upload URL
-              </span>
+              <RequestUrl />
             </div>
           )}
         </Hero>

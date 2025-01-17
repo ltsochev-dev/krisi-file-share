@@ -203,7 +203,7 @@ export default function AdminPanel({ bucket }: { bucket: string }) {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Clien't E-Mail Address for Reference"
+                    placeholder="Client E-Mail Address for Reference"
                     className="col-span-3"
                     autoComplete="off"
                   />
