@@ -21,9 +21,9 @@ export default async function checkFileExistence(
       "name" in error &&
       error.name === "NotFound"
     ) {
-      console.log(`File does not exist: ${filename}`);
       return false;
     }
+
     console.error("Error checking file existence:", error);
     throw error;
   }

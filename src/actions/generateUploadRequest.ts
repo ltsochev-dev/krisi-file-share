@@ -2,9 +2,9 @@
 
 import S3Storage from "@/storage";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { nanoid } from "nanoid";
 
 export interface UploadRequestProps {
-  filename: string;
   expireIn: number;
   client: {
     name: string;
@@ -14,22 +14,23 @@ export interface UploadRequestProps {
 
 export default async function generateUploadRequest(
   Bucket: string,
-  { filename, ...props }: UploadRequestProps
+  { ...props }: UploadRequestProps
 ) {
   try {
+    const filename = nanoid();
     const Key = `${filename}.request`;
 
     const command = new PutObjectCommand({
       Bucket,
       Key,
-      Body: JSON.stringify(generateMetadata({ filename, ...props })),
+      Body: JSON.stringify(generateMetadata({ ...props })),
       Expires: new Date(Date.now() + props.expireIn * 1000),
       ContentType: "text/plain",
     });
 
     await S3Storage.send(command);
 
-    return true;
+    return filename;
   } catch (error) {
     console.error("Error uploading file:", error);
     return false;

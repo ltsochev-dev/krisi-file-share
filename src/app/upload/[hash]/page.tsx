@@ -16,9 +16,8 @@ export default async function UploadPage({ params }: UploadPageParams) {
     process.env.AWS_BUCKET!,
     `${hash}.request`
   );
-  const fileExists = await checkFileExistence(process.env.AWS_BUCKET!, hash);
 
-  console.log({ isValidLink, fileExists });
+  const fileExists = await checkFileExistence(process.env.AWS_BUCKET!, hash);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white">
@@ -33,7 +32,7 @@ export default async function UploadPage({ params }: UploadPageParams) {
         )}
         {!fileExists && isValidLink && (
           <>
-            <Hero hash={hash} />
+            <Hero hash={hash} showUpload />
             <Features />
           </>
         )}

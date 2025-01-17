@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, LoaderPinwheel } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +32,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FileInfo } from "./types";
+import generateUploadRequest, {
+  UploadRequestProps,
+} from "@/actions/generateUploadRequest";
+import listFiles from "@/actions/listFiles";
 
 const expireTimes = [
   { label: "Delete after 6 hours", value: 60 * 60 * 6 },
@@ -43,14 +47,34 @@ const expireTimes = [
   { label: "Delete after 7 days", value: 60 * 60 * 24 * 7 },
 ] as const;
 
-export default function AdminPanel() {
+export default function AdminPanel({ bucket }: { bucket: string }) {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [uploadLink, setUploadLink] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [expireTime, setExpireTime] = useState(expireTimes[0].value.toString());
+
+  const fetchFiles = useCallback(async () => {
+    const fileList = await listFiles(bucket);
+    if (!fileList) return;
+
+    const fileInfoList: FileInfo[] = fileList.map((obj) => ({
+      hash: obj.Key ?? "",
+      expiresAt: obj.Metadata?.["x-amz-meta-expires"] ?? "",
+      size: obj.Size ?? 0,
+      uploadedAt: obj.LastModified?.toLocaleString() ?? "",
+      originalName: obj.Metadata?.["x-amz-meta-original-filename"] ?? "",
+    }));
+
+    setFiles(fileInfoList);
+  }, [bucket]);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
 
   const reset = () => {
     setName("");
@@ -59,17 +83,38 @@ export default function AdminPanel() {
     setExpireTime(expireTimes[0].value.toString());
   };
 
-  const handleUrlGeneration = () => {
+  const handleUrlGeneration = async () => {
     if (name.trim().length === 0 || email.trim().length === 0) return;
 
     setIsGenerating(true);
+    setError(null);
 
-    setTimeout(() => {
-      reset();
-      setUploadLink("https://1337.code/url");
+    const payload: UploadRequestProps = {
+      expireIn: Number(expireTime),
+      client: {
+        name,
+        email,
+      },
+    };
+
+    try {
+      const uploadHash = await generateUploadRequest(bucket, payload);
+
+      if (!uploadHash) {
+        setError("Error generating sharing URL.");
+        return;
+      }
+
+      setUploadLink(
+        `${location.origin}/upload/${encodeURIComponent(uploadHash)}`
+      );
       setModalOpen(false);
-      setFiles([]);
-    }, 3000);
+      reset();
+    } catch (err) {
+      console.error("Error while generating url", err);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -91,15 +136,13 @@ export default function AdminPanel() {
             </TableHeader>
             <TableBody>
               {files.map((file) => (
-                <TableRow key={file.pathname}>
-                  <TableCell>{file.pathname}</TableCell>
+                <TableRow key={file.hash}>
+                  <TableCell>{file.originalName}</TableCell>
                   <TableCell>{(file.size / 1024).toFixed(2)} KB</TableCell>
-                  <TableCell>
-                    {new Date(file.uploadedAt).toLocaleString()}
-                  </TableCell>
+                  <TableCell>{file.uploadedAt}</TableCell>
                   <TableCell>
                     <a
-                      href={file.url}
+                      href="#"
                       download
                       className="text-blue-500 hover:underline"
                     >
@@ -162,6 +205,7 @@ export default function AdminPanel() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Clien't E-Mail Address for Reference"
                     className="col-span-3"
+                    autoComplete="off"
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -189,6 +233,7 @@ export default function AdminPanel() {
                     </Select>
                   </div>
                 </div>
+                {error && <p className="text-red-700">{error}</p>}
               </div>
               <DialogFooter>
                 <Button

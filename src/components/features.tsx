@@ -40,7 +40,7 @@ export default function Features() {
   };
 
   return (
-    <div className="py-12 md:py-24">
+    <div className="py-12 md:py-18">
       <h2 className="text-3xl font-bold text-center mb-12 text-purple-800">
         Key Features
       </h2>

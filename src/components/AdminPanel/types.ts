@@ -1,6 +1,7 @@
 export interface FileInfo {
-  url: string;
-  pathname: string;
+  hash: string;
+  originalName?: string;
   size: number;
   uploadedAt: string;
+  expiresAt: string;
 }
