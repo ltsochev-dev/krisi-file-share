@@ -13,11 +13,14 @@ export default async function UploadPage({ params }: UploadPageParams) {
   const { hash } = await params;
 
   const isValidLink = await checkFileExistence(
-    process.env.AWS_BUCKET!,
+    process.env.NEXT_PUBLIC_AWS_BUCKET!,
     `${hash}.request`
   );
 
-  const fileExists = await checkFileExistence(process.env.AWS_BUCKET!, hash);
+  const fileExists = await checkFileExistence(
+    process.env.NEXT_PUBLIC_AWS_BUCKET!,
+    hash
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white">

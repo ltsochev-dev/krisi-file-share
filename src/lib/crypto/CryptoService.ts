@@ -1,59 +1,14 @@
 import { base64ToArrayBuffer } from "./utils";
 
 export default class CryptoService {
-  private cryptoKey: CryptoKey;
+  private pubKey: CryptoKey;
 
-  constructor(cryptoKey: CryptoKey) {
-    this.cryptoKey = cryptoKey;
+  constructor(pubKey: CryptoKey) {
+    this.pubKey = pubKey;
   }
 
-  async encryptFile(
-    file: File | ArrayBuffer,
-    chunkSize: number = 64 * 1024,
-    onProgress?: (progress: number) => void
-  ): Promise<ArrayBuffer> {
-    const data = file instanceof File ? await file.arrayBuffer() : file;
-    const totalSize = data.byteLength;
-    const encryptedChunks: ArrayBuffer[] = [];
-
-    let offset = 0;
-
-    while (offset < totalSize) {
-      const chunk = data.slice(offset, offset + chunkSize);
-
-      const encryptedChunk = await crypto.subtle.encrypt(
-        { name: "RSA-OAEP" },
-        this.cryptoKey,
-        chunk
-      );
-
-      encryptedChunks.push(encryptedChunk);
-      offset += chunkSize;
-
-      if (onProgress) {
-        onProgress(Math.min(100, (offset / totalSize) * 100));
-      }
-    }
-
-    const combined = this.combineChunks(encryptedChunks);
-    return combined;
-  }
-
-  private combineChunks(chunks: ArrayBuffer[]) {
-    const totalSize = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-    const combined = new Uint8Array(totalSize);
-
-    let offset = 0;
-    for (const chunk of chunks) {
-      combined.set(new Uint8Array(chunk), offset);
-      offset += chunk.byteLength;
-    }
-
-    return combined.buffer;
-  }
-
-  static async importKey(rsaKey: string): Promise<CryptoKey> {
-    const binaryDer = base64ToArrayBuffer(rsaKey);
+  static async importKey(pubKey: string) {
+    const binaryDer = base64ToArrayBuffer(pubKey);
 
     return crypto.subtle.importKey(
       "spki",
@@ -65,5 +20,66 @@ export default class CryptoService {
       true,
       ["encrypt"]
     );
+  }
+
+  generateIv(length = 12) {
+    return window.crypto.getRandomValues(new Uint8Array(length));
+  }
+
+  async encryptFile(
+    file: File,
+    aesKey: CryptoKey,
+    iv: Uint8Array,
+    chunkSize = 1024 * 1024 * 16
+  ) {
+    return new ReadableStream({
+      async start(controller) {
+        let offset = 0;
+
+        while (offset < file.size) {
+          const chunk = file.slice(
+            offset,
+            Math.min(file.size, offset + chunkSize)
+          );
+          const buffer = await new Response(chunk).arrayBuffer();
+
+          const encryptedChunk = await window.crypto.subtle.encrypt(
+            {
+              name: "AES-GCM",
+              iv,
+            },
+            aesKey,
+            buffer
+          );
+
+          controller.enqueue(new Uint8Array(encryptedChunk));
+          offset += buffer.byteLength;
+        }
+
+        controller.close();
+      },
+      cancel(reason) {
+        console.log("Encrypt stream cancelled", reason);
+      },
+    });
+  }
+
+  async generateKey() {
+    const aesKey = await window.crypto.subtle.generateKey(
+      {
+        name: "AES-GCM",
+        length: 256,
+      },
+      true,
+      ["encrypt"]
+    );
+
+    const wrappedKey = await window.crypto.subtle.encrypt(
+      { name: "RSA-OAEP" },
+      this.pubKey,
+      await window.crypto.subtle.exportKey("raw", aesKey)
+    );
+
+    return { wrappedKey, aesKey };
   }
 }

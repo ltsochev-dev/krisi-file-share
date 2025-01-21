@@ -15,8 +15,6 @@ import { nanoid } from "nanoid";
 import useCrypto from "@/hooks/useCrypto";
 import AppSettings from "@/settings";
 import checkFileExistence from "@/actions/checkFileExistence";
-import { isMultipartUploadRequired } from "@/lib/utils";
-import SimpleUploader from "@/lib/uploaders/SimpleUploader";
 import getPresignedUploadUrl from "@/actions/getPresignedUploadUrl";
 import { useRouter } from "next/navigation";
 
@@ -57,9 +55,11 @@ export default function FileUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
-  const { encryptFile, loaded: cryptoServiceLoaded } = useCrypto(
-    AppSettings.encryptPubKey
-  );
+  const {
+    encryptFile,
+    loaded: cryptoServiceLoaded,
+    monitorStreamProgress,
+  } = useCrypto(AppSettings.encryptPubKey);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -74,13 +74,24 @@ export default function FileUpload({
     setIsUploading(true);
 
     // checkFileExistence
-    const fileExists = await checkFileExistence(process.env.AWS_BUCKET!, hash);
+    const fileExists = await checkFileExistence(
+      process.env.NEXT_PUBLIC_AWS_BUCKET!,
+      hash
+    );
     if (fileExists) {
       setError(
         "File already exists on the remote storage. Please ask me for another upload link!"
       );
       return;
     }
+
+    const encryption = await encryptFile({ file });
+    if (!encryption) {
+      setError("Something went wrong during encryption. File upload aborted.");
+      return;
+    }
+
+    const { key, iv, fileStream } = encryption;
 
     const metadata = {
       "x-amz-meta-original-filename": file.name,
@@ -90,54 +101,43 @@ export default function FileUpload({
       "x-amz-meta-mimetype": file.type,
       "x-amz-meta-hash": hash,
       "x-amz-meta-expires": deletionTime,
+      "x-amz-meta-aes-key": key,
+      "x-amz-meta-aes-iv": iv,
     };
 
-    if (isMultipartUploadRequired(file)) {
-      // use multipart upload
-      throw new Error("Multipart file uploads are not done yet.");
-    } else {
-      // getPresignedUploadUrl with proper expire field
-      const presignedUrl = await getPresignedUploadUrl(
-        process.env.AWS_BUCKET!,
-        {
-          hash,
-          expireIn: Number(deletionTime),
-          size: file.size,
-          metadata,
-        }
-      );
+    const presignedUrl = await getPresignedUploadUrl(
+      process.env.NEXT_PUBLIC_AWS_BUCKET!,
+      { hash, expireIn: Number(deletionTime), size: file.size, metadata }
+    );
 
-      if (!presignedUrl) {
-        setError("Could not create presigned url. Please try again later.");
-        return;
-      }
-
-      const uploader = new SimpleUploader({
-        file: await encryptFile({ file }), // encrypt blob
-        presignedUrl,
-        onProgress: (progress) => {
-          if (progress.percentCompleted) {
-            setUploadPercent(progress.percentCompleted);
-          }
-        },
-        headers: {
-          "Content-Type": "application/octet-stream", // upload file as application/octet-stream
-        },
-      });
-
-      uploader
-        .upload()
-        .then(() => {
-          setIsUploaded(true);
-          setTimeout(() => router.replace("/success"), 3000);
-        })
-        .finally(() => {
-          setFile(null);
-          setError(null);
-          setIsUploading(false);
-          setUploadPercent(0);
-        });
+    if (!presignedUrl) {
+      setError("Could not create presigned url. Please try again later.");
+      return;
     }
+
+    const monitoredStream = monitorStreamProgress(
+      fileStream,
+      (bytesLoaded: number) => {
+        setUploadPercent((bytesLoaded / file.size) * 100);
+      }
+    );
+
+    const res = await fetch(presignedUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/octet-stream",
+      },
+      body: monitoredStream,
+    });
+
+    if (!res.ok) {
+      setError("Something went wrong with the upload.");
+      return;
+    }
+
+    setIsUploaded(true);
+
+    setTimeout(() => router.push("/thank-you"), 3000);
   };
 
   return (
@@ -181,8 +181,8 @@ export default function FileUpload({
         {isUploading
           ? "Uploading..."
           : isUploaded
-          ? "Uploaded!"
-          : "Upload File"}
+            ? "Uploaded!"
+            : "Upload File"}
       </ProgressButton>
       <p className="text-center text-xs text-gray-400">
         * Only single file uploads are allowed at the moment. If you wish to

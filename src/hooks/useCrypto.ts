@@ -10,6 +10,39 @@ export default function useCrypto(pubKey?: string | null) {
 
   const hasError = error !== null;
 
+  const monitorStreamProgress = useCallback(
+    (readableStream: ReadableStream, onProgress?: (bytes: number) => void) => {
+      let bytesProcessed = 0;
+
+      const reader = readableStream.getReader();
+
+      return new ReadableStream({
+        async start(controller) {
+          const push = async () => {
+            const chunk = await reader.read();
+            if (chunk.done) {
+              controller.close();
+              return;
+            }
+
+            // Track progress
+            bytesProcessed += chunk.value.length;
+            onProgress?.(bytesProcessed);
+
+            controller.enqueue(chunk.value);
+            await push();
+          };
+
+          push();
+        },
+        cancel(reason) {
+          reader.cancel(reason);
+        },
+      });
+    },
+    []
+  );
+
   useEffect(() => {
     const initCryptoService = async () => {
       try {
@@ -32,25 +65,41 @@ export default function useCrypto(pubKey?: string | null) {
   const encryptFile = useCallback(
     async ({
       file,
-      chunkSize = 1024 * 64,
-      onProgress,
+      chunkSize = 1024 * 1024 * 64,
     }: {
-      file: File | ArrayBuffer;
+      file: File;
       chunkSize?: number;
-      onProgress?: (progress: number) => void;
     }) => {
       if (!cryptoService || !loaded) {
         setError("Encryption service is not ready");
-        return new ArrayBuffer();
+        return Promise.resolve(null);
       }
 
       try {
-        // @todo implement onProgress
-        return cryptoService.encryptFile(file, chunkSize, onProgress);
+        // Generate AES-GCM-256 key for file encryption
+        const iv = await cryptoService.generateIv();
+        const { aesKey, wrappedKey } = await cryptoService.generateKey();
+
+        const base64EncryptedKey = btoa(
+          String.fromCharCode(...new Uint8Array(wrappedKey))
+        );
+        const ivBase64 = btoa(String.fromCharCode(...iv));
+        const encryptStream = await cryptoService.encryptFile(
+          file,
+          aesKey,
+          iv,
+          chunkSize
+        );
+
+        return {
+          iv: ivBase64,
+          key: base64EncryptedKey,
+          fileStream: encryptStream,
+        };
       } catch (err) {
         setError("Encryption failed");
         console.error(err);
-        return new ArrayBuffer();
+        return Promise.resolve(null);
       }
     },
     [cryptoService, loaded]
@@ -59,6 +108,7 @@ export default function useCrypto(pubKey?: string | null) {
   return {
     cryptoService,
     encryptFile,
+    monitorStreamProgress,
     loaded,
     hasError,
     error,

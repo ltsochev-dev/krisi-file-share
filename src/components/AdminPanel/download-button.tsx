@@ -20,7 +20,7 @@ export default function DownloadButton({ hash }: { hash: string }) {
 
     try {
       const presignedRes = await getPresignedDownloadUrl(
-        process.env.AWS_BUCKET!,
+        process.env.NEXT_PUBLIC_AWS_BUCKET!,
         hash
       );
 

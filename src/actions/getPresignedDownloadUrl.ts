@@ -8,7 +8,8 @@ export default async function getPresignedDownloadUrl(
   bucket: string,
   hash: string
 ) {
-  const awsBucket = bucket?.length > 0 ? bucket : process.env.AWS_BUCKET!;
+  const awsBucket =
+    bucket?.length > 0 ? bucket : process.env.NEXT_PUBLIC_AWS_BUCKET!;
   const command = new GetObjectCommand({
     Bucket: awsBucket,
     Key: hash,
