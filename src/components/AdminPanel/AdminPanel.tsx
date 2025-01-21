@@ -54,6 +54,7 @@ export default function AdminPanel({ bucket }: { bucket: string }) {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [isLoading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [expireTime, setExpireTime] = useState(expireTimes[0].value.toString());
@@ -63,18 +64,23 @@ export default function AdminPanel({ bucket }: { bucket: string }) {
     if (!fileList) return;
 
     const fileInfoList: FileInfo[] = fileList.map((obj) => ({
+      author: "Not done yet",
       hash: obj.Key ?? "",
-      expiresAt: obj.Metadata?.["x-amz-meta-expires"] ?? "",
+      expiresAt: obj.Metadata?.["expires"] ?? "",
       size: obj.Size ?? 0,
       uploadedAt: obj.LastModified?.toLocaleString() ?? "",
-      originalName: obj.Metadata?.["x-amz-meta-original-filename"] ?? "",
+      originalName: obj.Metadata?.["original-filename"] ?? "",
     }));
 
     setFiles(fileInfoList);
   }, [bucket]);
 
   useEffect(() => {
-    fetchFiles();
+    setLoading(true);
+
+    fetchFiles()
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, [fetchFiles]);
 
   const reset = () => {
@@ -136,18 +142,29 @@ export default function AdminPanel({ bucket }: { bucket: string }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {files.map((file) => (
-                <TableRow key={file.hash}>
-                  <TableCell>@ToDo</TableCell>
-                  <TableCell>{file.originalName}</TableCell>
-                  <TableCell>{(file.size / 1024).toFixed(2)} KB</TableCell>
-                  <TableCell>{file.uploadedAt}</TableCell>
-                  <TableCell>
-                    <DownloadButton hash={file.hash} />
+              {!isLoading &&
+                files.map((file) => (
+                  <TableRow key={file.hash}>
+                    <TableCell>{file.author}</TableCell>
+                    <TableCell>{file.originalName}</TableCell>
+                    <TableCell>{(file.size / 1024).toFixed(2)} KB</TableCell>
+                    <TableCell>{file.uploadedAt}</TableCell>
+                    <TableCell>
+                      <DownloadButton hash={file.hash} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    <div className="flex w-full items-center justify-center">
+                      <LoaderPinwheel className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))}
-              {files.length === 0 && (
+              )}
+              {files.length === 0 && !isLoading && (
                 <TableRow>
                   <TableCell colSpan={5} align="center">
                     No files were found on the server

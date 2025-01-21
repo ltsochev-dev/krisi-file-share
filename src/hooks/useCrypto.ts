@@ -63,13 +63,7 @@ export default function useCrypto(pubKey?: string | null) {
   }, [pubKey]);
 
   const encryptFile = useCallback(
-    async ({
-      file,
-      chunkSize = 1024 * 1024 * 64,
-    }: {
-      file: File;
-      chunkSize?: number;
-    }) => {
+    async ({ file }: { file: File; chunkSize?: number }) => {
       if (!cryptoService || !loaded) {
         setError("Encryption service is not ready");
         return Promise.resolve(null);
@@ -84,17 +78,12 @@ export default function useCrypto(pubKey?: string | null) {
           String.fromCharCode(...new Uint8Array(wrappedKey))
         );
         const ivBase64 = btoa(String.fromCharCode(...iv));
-        const encryptStream = await cryptoService.encryptFile(
-          file,
-          aesKey,
-          iv,
-          chunkSize
-        );
+        const encryptedFile = await cryptoService.encryptFile(file, aesKey, iv);
 
         return {
           iv: ivBase64,
           key: base64EncryptedKey,
-          fileStream: encryptStream,
+          encryptedFile: new Blob([encryptedFile]),
         };
       } catch (err) {
         setError("Encryption failed");

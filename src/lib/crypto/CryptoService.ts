@@ -26,7 +26,17 @@ export default class CryptoService {
     return window.crypto.getRandomValues(new Uint8Array(length));
   }
 
-  async encryptFile(
+  async encryptFile(file: File, aesKey: CryptoKey, iv: Uint8Array) {
+    const fileBuffer = await file.arrayBuffer();
+
+    return window.crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      aesKey,
+      fileBuffer
+    );
+  }
+
+  async encryptFileToStream(
     file: File,
     aesKey: CryptoKey,
     iv: Uint8Array,

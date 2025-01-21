@@ -56,11 +56,9 @@ export default function FileUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
-  const {
-    encryptFile,
-    loaded: cryptoServiceLoaded,
-    monitorStreamProgress,
-  } = useCrypto(AppSettings.encryptPubKey);
+  const { encryptFile, loaded: cryptoServiceLoaded } = useCrypto(
+    AppSettings.encryptPubKey
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -92,23 +90,29 @@ export default function FileUpload({
       return;
     }
 
-    const { key, iv, fileStream } = encryption;
+    const { key, iv, encryptedFile } = encryption;
 
     const metadata = {
-      "x-amz-meta-original-filename": file.name,
-      "x-amz-meta-original-extension": file.name.includes(".")
+      "original-filename": file.name,
+      "original-extension": file.name.includes(".")
         ? file.name.split(".").pop()!.toLowerCase()
         : "",
-      "x-amz-meta-mimetype": file.type,
-      "x-amz-meta-hash": hash,
-      "x-amz-meta-expires": deletionTime,
-      "x-amz-meta-aes-key": key,
-      "x-amz-meta-aes-iv": iv,
+      mimetype: file.type,
+      hash: hash,
+      expires: deletionTime,
+      "aes-key": key,
+      "aes-iv": iv,
     };
 
     const presignedUrl = await getPresignedUploadUrl(
       process.env.NEXT_PUBLIC_AWS_BUCKET!,
-      { hash, expireIn: Number(deletionTime), size: file.size, metadata }
+      {
+        hash,
+        expireIn: Number(deletionTime),
+        size: file.size,
+        metadata,
+        type: file.type,
+      }
     );
 
     if (!presignedUrl) {
@@ -116,40 +120,36 @@ export default function FileUpload({
       return;
     }
 
-    const monitoredStream = monitorStreamProgress(
-      fileStream,
-      (bytesLoaded: number) => {
-        setUploadPercent((bytesLoaded / file.size) * 100);
+    try {
+      const res = await axios.put(presignedUrl, encryptedFile, {
+        headers: {
+          ...metadata,
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.lengthComputable && progressEvent.total) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+
+            setUploadPercent(percentCompleted);
+          }
+        },
+      });
+
+      if (res.status !== 200) {
+        setError("Something went wrong with the upload.");
+        return;
       }
-    );
 
-    // AWS ruined my performant hopes and dreams
-    // I'll have to encrypt the whole blob now and upload it, without streams
-    // Man i hate aws sometimes
-    const res = await axios.put(presignedUrl, monitoredStream);
+      setIsUploaded(true);
 
-    if (res.status !== 200) {
-      setError("Something went wrong with the upload.");
-      return;
+      setTimeout(() => router.push("/thank-you"), 3000);
+    } catch (e) {
+      console.error(e);
+      setError("Upload failed. Please try again.");
+    } finally {
+      setIsUploading(false);
     }
-
-    /*const res = await fetch(presignedUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/octet-stream",
-      },
-      body: monitoredStream,
-      duplex: "half",
-    } as ExtendedRequestInit);
-
-    if (!res.ok) {
-      setError("Something went wrong with the upload.");
-      return;
-    }*/
-
-    setIsUploaded(true);
-
-    setTimeout(() => router.push("/thank-you"), 3000);
   };
 
   return (
@@ -196,11 +196,11 @@ export default function FileUpload({
             ? "Uploaded!"
             : "Upload File"}
       </ProgressButton>
+      {error && <p className="text-center text-red-700 pb-2">{error}</p>}
       <p className="text-center text-xs text-gray-400">
         * Only single file uploads are allowed at the moment. If you wish to
         upload multiple files, please put them in a ZIP file or similar
       </p>
-      {error && <p className="text-center text-red-700">{error}</p>}
     </div>
   );
 }

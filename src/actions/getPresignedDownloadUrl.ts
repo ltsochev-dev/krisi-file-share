@@ -27,10 +27,12 @@ export default async function getPresignedDownloadUrl(
   const url = presignedUrl;
 
   return {
-    filename: metadata?.["x-amz-meta-original-filename"] ?? hash,
-    extension: metadata?.["x-amz-meta-original-extension"],
-    type: metadata?.["x-amz-meta-mimetype"],
+    filename: metadata?.["original-filename"] ?? hash,
+    extension: metadata?.["original-extension"],
+    type: metadata?.["mimetype"],
     size: metadata.size,
+    aesKey: metadata?.["aes-key"],
+    aesIv: metadata?.["aes-iv"],
     url,
   };
 }
