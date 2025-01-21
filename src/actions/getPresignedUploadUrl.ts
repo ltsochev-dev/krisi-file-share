@@ -13,7 +13,7 @@ export interface PresignedUploadUrlProps {
 
 export default async function getPresignedUploadUrl(
   Bucket: string,
-  { hash, expireIn, metadata }: PresignedUploadUrlProps
+  { hash, expireIn, size, metadata }: PresignedUploadUrlProps
 ) {
   try {
     const command = new PutObjectCommand({
@@ -21,6 +21,8 @@ export default async function getPresignedUploadUrl(
       Key: hash,
       Expires: new Date(Date.now() + expireIn * 1000),
       Metadata: metadata,
+      ContentType: "application/octet-stream",
+      ContentLength: size,
     });
 
     return getSignedUrl(S3Storage, command, { expiresIn: 3600 });

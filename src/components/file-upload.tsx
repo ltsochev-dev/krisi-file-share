@@ -17,6 +17,7 @@ import AppSettings from "@/settings";
 import checkFileExistence from "@/actions/checkFileExistence";
 import getPresignedUploadUrl from "@/actions/getPresignedUploadUrl";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 
 export type DeletionTime = {
   value: number;
@@ -122,18 +123,29 @@ export default function FileUpload({
       }
     );
 
-    const res = await fetch(presignedUrl, {
+    // AWS ruined my performant hopes and dreams
+    // I'll have to encrypt the whole blob now and upload it, without streams
+    // Man i hate aws sometimes
+    const res = await axios.put(presignedUrl, monitoredStream);
+
+    if (res.status !== 200) {
+      setError("Something went wrong with the upload.");
+      return;
+    }
+
+    /*const res = await fetch(presignedUrl, {
       method: "PUT",
       headers: {
         "Content-Type": "application/octet-stream",
       },
       body: monitoredStream,
-    });
+      duplex: "half",
+    } as ExtendedRequestInit);
 
     if (!res.ok) {
       setError("Something went wrong with the upload.");
       return;
-    }
+    }*/
 
     setIsUploaded(true);
 
