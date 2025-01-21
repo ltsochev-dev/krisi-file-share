@@ -13,7 +13,6 @@ import {
 import { ProgressButton } from "./ui/progressButton";
 import { nanoid } from "nanoid";
 import useCrypto from "@/hooks/useCrypto";
-import AppSettings from "@/settings";
 import checkFileExistence from "@/actions/checkFileExistence";
 import getPresignedUploadUrl from "@/actions/getPresignedUploadUrl";
 import { useRouter } from "next/navigation";
@@ -57,7 +56,7 @@ export default function FileUpload({
   const [isUploaded, setIsUploaded] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
   const { encryptFile, loaded: cryptoServiceLoaded } = useCrypto(
-    AppSettings.encryptPubKey
+    process.env.NEXT_PUBLIC_ENCRYPTION_PUBLIC_KEY!
   );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
