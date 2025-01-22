@@ -76,6 +76,12 @@ export default function AdminPanel({ bucket }: { bucket: string }) {
     setFiles(fileInfoList);
   }, [bucket]);
 
+  const handleDelete = (files: string[]) => {
+    // @todo useOptimistic instead of useState ?
+    // @todo refactor fetchFiles to maintain loading state itself and not the useEffect?
+    setFiles((prev) => prev.filter((file) => files.includes(file.hash)));
+  };
+
   useEffect(() => {
     setLoading(true);
 
@@ -152,7 +158,7 @@ export default function AdminPanel({ bucket }: { bucket: string }) {
                     <TableCell>{file.uploadedAt}</TableCell>
                     <TableCell>
                       <DownloadButton hash={file.hash} />
-                      <DeleteButton hash={file.hash} />
+                      <DeleteButton hash={file.hash} onDelete={handleDelete} />
                     </TableCell>
                   </TableRow>
                 ))}

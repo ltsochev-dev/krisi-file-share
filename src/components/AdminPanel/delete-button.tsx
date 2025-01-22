@@ -5,7 +5,13 @@ import { Delete, LoaderPinwheel } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DeleteObject from "@/actions/deleteObject";
 
-export default function DeleteButton({ hash }: { hash: string }) {
+export default function DeleteButton({
+  hash,
+  onDelete,
+}: {
+  hash: string;
+  onDelete?: (files: string[]) => void;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,7 +23,14 @@ export default function DeleteButton({ hash }: { hash: string }) {
     try {
       setLoading(true);
 
-      await DeleteObject(process.env.NEXT_PUBLIC_AWS_BUCKET!, { hash });
+      const deletedFiles = await DeleteObject(
+        process.env.NEXT_PUBLIC_AWS_BUCKET!,
+        { hash }
+      );
+
+      onDelete?.(
+        deletedFiles?.map((obj) => obj.Key as string)?.filter(Boolean) ?? []
+      );
     } catch (e) {
       console.error(e);
       setError("Something went wrong.");
