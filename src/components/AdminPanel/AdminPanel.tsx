@@ -37,6 +37,7 @@ import generateUploadRequest, {
 } from "@/actions/generateUploadRequest";
 import listFiles from "@/actions/listFiles";
 import DownloadButton from "./download-button";
+import DeleteButton from "./delete-button";
 
 const expireTimes = [
   { label: "Delete after 6 hours", value: 60 * 60 * 6 },
@@ -151,6 +152,7 @@ export default function AdminPanel({ bucket }: { bucket: string }) {
                     <TableCell>{file.uploadedAt}</TableCell>
                     <TableCell>
                       <DownloadButton hash={file.hash} />
+                      <DeleteButton hash={file.hash} />
                     </TableCell>
                   </TableRow>
                 ))}

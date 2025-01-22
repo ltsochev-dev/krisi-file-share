@@ -50,8 +50,6 @@ export default function DownloadButton({ hash }: { hash: string }) {
     }
   }, [hash]);
 
-  console.log({ fileInfo });
-
   return (
     <>
       {!fileInfo && (
